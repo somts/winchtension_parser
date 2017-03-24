@@ -1,0 +1,45 @@
+#!/bin/sh
+# Usage: winch-tension-threshold-2 lci-90_file threshold
+# Purpose: to find winch tension in an lci-90 file exceeding a threshold.
+# Derived from winch-tension-threshold script, dyang 08/10/2015. 
+# The main difference is instead of skipping certain records, it picks the highest tension per 20 records.
+
+if [ $# -ne 2 ]; then
+    echo "Usage: winch-tension-threshold lci-90_file threshold"
+    echo "Purpose: to find winch tension beyond specified threshold in an lci-90 file."
+    exit 1
+fi
+
+file=$1
+thrsh=$2
+if [ ! -e $file ]; then
+    echo "$file doesn't exist."
+    exit 1
+fi
+
+# LCI-90i [1] = time, [2] = winch number, [3] = tension in lbs, [4] = speed, [5] = payout, [6] = checksum
+# kept spike differential logic, for reference.  w = winch type, ts = time, v = tension,
+# td = tension differential, p = payout.  
+# maxt = max tension, maxt_ts = time of max tension. 
+
+# Result: Winch number, Date, Tension (lbs), load differential to previous tension.  
+
+#awkPgm='BEGIN{pt=-1;}{ts=$1; nf=split($2,a,","); 
+awkPgm='BEGIN{pt=-1; cnt=0; maxt=0; maxt_ts=-1; p=-1;}
+{
+ts=$1; nf=split($2,a,","); 
+if (nf != 6) {next;} 
+sub("[123456789][0123456789]*$","&",a[3]); v=a[3]+0;
+if (v=="" || v < 50) {next;}
+if (maxt<v) {maxt=v; maxt_ts=ts; p=a[5]+0.0;}
+if (pt==-1) pt=v;
+if ($2~/01RD/) w="Winch 1"; if ($2~/02RD/) w="Winch 2"; if ($2~/03RD/) w="Winch 3"; 
+if ($2~/04RD/) w="Winch 4"; if ($2~/05RD/) w="Winch 5"; if ($2~/06RD/) w="Winch 6";
+td=v-pt; pt=v; 
+if (v>=thrsh && ++cnt > 19) {print w",",strftime("%Y-%m-%d %H:%M:%S GMT",maxt_ts)",",maxt",",td",",p;
+cnt=0; maxt=0; maxt_ts=0; p=-1;}
+}'
+
+awk -v thrsh=$thrsh "$awkPgm" $file
+
+

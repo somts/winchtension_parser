@@ -1,0 +1,130 @@
+#!/bin/sh
+# Usage: tension-report, to be used with winch-tension-threshold
+# Purpose: to print out winch tension above a certain threshold
+# 7/24/2015 dyang - New script, dirty, very brute force..
+
+if [ "$#" -ne 4 ] || ! [ -d "$3" ]; then
+	echo "Usage: tension-report, to be used with winch-tension-threshold"
+	echo "Usage: 'sh tension-report SP 15 /mnt/nas2/SIO-Cruises/Sproul 2000' where SP is ship initial, 15 is year, followed by cruise directory, then the threshold."
+	echo "Usage: 'sh tension-report SP 15 /mnt/nas2/SIO-Cruises/Sproul/SP1504 2000' You can also process a specific cruise directory"
+	echo "Usage: Non-standard cruise directory names must be specified and processed individually '.../Sproul/CalFofi2000'"
+	echo "Usage: Notice how none of the examples have a trailing slash.  Do not end your directory path with a trailing slash!"
+	echo "Error: If you see this message with entered parameters, the target directory you've supplied does not exist, and/or you've entered insufficient paramters."
+	echo "Purpose: to print out max tension, and winch tension above a certain threshold"
+	exit 1
+fi
+
+#Personal reference for the parameters:
+#ship=$1
+#year=$2
+#dir=$3
+#thres=$4
+
+if ! [ "$1" == "SP" ] && ! [ "$1" == "RR" ] && ! [ "$1" == "NH" ] && ! [ "$1" == "SR" ]; then
+	echo "Ship name incorrect, choose SP, NH, RR, or SR"
+	echo "Ship initials are case sensitive"
+	exit 1
+fi
+
+if ([ "$1" == "SP" ] && ! [[ "$3" == *"Sproul"* ]]) || ([ "$1" == "NH" ] && ! [[ "$3" == *"NewHorizon"* ]]) ||
+	([ "$1" == "RR" ] && ! [[ "$3" == *"Revelle"* ]]) || ([ "$1" == "SR" ] && ! [[ "$3" == *"SallyRide"* ]]); then
+	echo "Ship Initials and ship cruise directory mismatch"
+	exit 1
+fi
+
+#check if supplied directory path specifies a specific cruise, including non-standard names.
+if [[ $3 =~ "SP$2" ]] || [[ $3 =~ "NH$2" ]] || 
+   [[ $3 =~ "Sproul\/" ]] || [[ $3 =~ "NewHorizon\/" ]]; then
+	dirtest=1
+	echo "SP/NH Cruise Specific"
+elif [[ $3 =~ "RR$2" ]] || [[ $3 =~ "SR$2" ]] ||
+     [[ $3 =~ "Revelle\/" ]] || [[ $3 =~ "SallyRide\/" ]]; then
+	dirtest=2
+	echo "RR/SR Cruise Specific."
+else	
+	dirtest=0
+	echo "Process entire $1's 20$2 year"
+fi
+
+# Find correct directory depending on ship
+if [ "$1" == "SP" ] || [ "$1" == "NH" ]; then
+	FILES1="/*/winch-lci/*.raw"
+	FILES2="/*/traction-winch-lci/*.raw"
+	if [ $dirtest == 1 ]; then
+		DIR="/$3"
+	elif [ $dirtest == 0 ]; then	
+		DIR="/$3/$1$2"*
+	fi
+elif [ "$1" == "RR" ] || [ "$1" == "SR" ]; then
+	FILES1="/data/*/trawl-winch/*.raw"
+	FILES2="/data/*/hydro-winch/*.raw"
+	if [ $dirtest == 2 ]; then	
+		DIR="/$3"
+	elif [ $dirtest == 0 ]; then
+		DIR="/$3/$1$2"*
+	fi
+fi
+
+#Remove old files
+for f in ./tension_report_$1$2*.csv; do
+	if [ -e $f ]; then
+		rm -f tension_report_$1$2*.csv;
+	fi
+done
+
+#run winch-tension-threshold depending on ship.
+yearTest=0
+for d in $DIR; do
+	if [ "$1" == "SP" ] || [ "$1" == "NH" ]; then
+		for f in $d$FILES1; do
+			if ! [ -e $f ]; then
+				break
+			fi
+                                di=${d##*/}
+                                echo "-$di-, THRSHLD:, $4 lbs" >>tension_report_$di.csv
+                                ./winch-max-tension $f >>tension_report_$di.csv
+                                ./winch-tension-threshold-2 $f $4 >>tension_report_$di.csv
+                                echo "$f done"
+		yearTest=1
+		done
+		for f in $d$FILES2; do
+                        if ! [ -e $f ]; then
+                                break
+                        fi
+                                di=${d##*/}
+                                echo "-$di-, THRSHLD:, $4 lbs" >>tension_report_$di\traction.csv
+                                ./winch-max-tension $f >>tension_report_$di\traction.csv
+                                ./winch-tension-threshold-2 $f $4 >>tension_report_$di\traction.csv
+                                echo "$f done"
+		yearTest=1
+                done
+	elif [ "$1" == "RR" ] || [ "$1" == "SR" ]; then	
+		for f in $d$FILES1; do
+			if ! [ -e $f ]; then
+				break
+			fi
+                                di=${d##*/}
+                                echo "-$di-, THRSHLD:, $4 lbs" >>tension_report_$di\trawl.csv
+                                ./winch-max-tension $f >>tension_report_$di\trawl.csv
+                                ./winch-tension-threshold-2 $f $4 >>tension_report_$di\trawl.csv
+                                echo "$f done"
+		yearTest=1	
+		done
+		for f in $d$FILES2; do
+			if ! [ -e $f ]; then
+				break
+			fi
+                                di=${d##*/}
+                                echo "-$di-, THRSHLD:, $4 lbs" >>tension_report_$di\hydro.csv
+                                ./winch-max-tension $f >>tension_report_$di\hydro.csv
+                                ./winch-tension-threshold-2 $f $4 >>tension_report_$di\hydro.csv
+                                echo "$f done"
+		yearTest=1
+		done
+	fi
+
+done
+
+if [ $yearTest == 1 ]; then echo "All done.  Your files are at ${PWD}/"
+else echo "No files in year 20$2 to process" 
+fi

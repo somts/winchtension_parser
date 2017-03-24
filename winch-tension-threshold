@@ -1,0 +1,38 @@
+#!/bin/sh
+# Usage: winch-tension-threshold lci-90_file threshold
+# Purpose: to find winch tension in an lci-90 file exceeding a threshold.
+# Derived from Frank's winch-tension-spikes script, dyang 07/23/2015.
+
+if [ $# -ne 2 ]; then
+    echo "Usage: winch-tension-threshold lci-90_file threshold"
+    echo "Purpose: to find winch tension beyond specified threshold in an lci-90 file."
+    exit 1
+fi
+
+file=$1
+thrsh=$2
+if [ ! -e $file ]; then
+    echo "$file doesn't exist."
+    exit 1
+fi
+
+# LCI-90i [1] = time, [2] = winch number, [3] = tension in lbs, [4] = speed, [5] = payout, [6] = checksum
+# kept spike differential logic, for reference.  w = winch type, ts = time, v = tension,
+# td = tension differential, p = payout. cnt is a basic counter to limit the results.  Set limit to 20. 
+#  
+
+# Result: Winch number, Date, Tension (lbs), load differential to previous tension.  
+
+#awkPgm='BEGIN{pt=-1;}{ts=$1; nf=split($2,a,","); 
+awkPgm='BEGIN{pt=-1; cnt=0}{ts=$1; nf=split($2,a,","); 
+if (++cnt < 5) next; cnt=0;
+if (nf != 6){next;} sub("[123456789][0123456789]*$","&",a[3]); v=a[3]+0;
+if (v=="" || v < 50) {next;}
+if (pt==-1) pt=v;
+if ($2~/01RD/) w="Winch 1"; if ($2~/02RD/) w="Winch 2"; if ($2~/03RD/) w="Winch 3"; 
+if ($2~/04RD/) w="Winch 4"; if ($2~/05RD/) w="Winch 5"; if ($2~/06RD/) w="Winch 6";
+p=a[5]+0.0; td=v-pt; pt=v; if (v>=thrsh) print w",",strftime("%Y-%m-%d %H:%M:%S GMT",ts)",",v",",td",",p}'
+
+awk -v thrsh=$thrsh "$awkPgm" $file
+
+

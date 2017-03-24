@@ -1,0 +1,36 @@
+#!/bin/sh
+# Usage: winch-max-tension lci-90_files...
+# Purpose: to find max winch tension in lci-90 files.
+if [ $# -lt 1 ]; then
+    echo "Usage: winch-max-tension lci-90_files..."
+    echo "Purpose: to find max winch tension in lci-90 files."
+    exit 1
+fi
+
+#omited minimum payout length 10.0m from awkPgm
+#if (v=="" || v < 50 || a[5]+0.0 < 10.0) {next;}
+awkPgm='BEGIN{maxt=0; maxt_ts=-1; maxt_wo=-1; cnt=0}
+{
+if (++cnt < 5) next; ts=$1; nf=split($2,a,",");
+cnt=0; if (nf != 6 || length(a[2]) != 23){next;}
+sub("[123456789][0123456789]*$","&",a[3]); v=a[3]+0;
+if (v=="" || v < 50) {next;}
+if (maxt<v) {maxt=v; maxt_ts=ts; maxt_wo=a[5]+0.0; w=a[1];}
+if (w~/01RD/) {w=1;}
+if (w~/02RD/) {w=2;}
+if (w~/03RD/) {w=3;}
+if (w~/04RD/) {w=4;}
+if (w~/05RD/) {w=5;}
+}
+END{print maxt,int(maxt_ts),maxt_wo,w}'
+
+#t=tension, ts=datetime, wo=wireout, w=winch#
+t_ts=`awk "$awkPgm" $@`
+tclsh <<EOF
+foreach {t ts wo w} "$t_ts" {}
+if {\$ts == -1} {
+    puts "Winch was not used."
+} else {
+    puts "MAX TNSN:, [clock format \$ts -format {%Y-%m-%d %H:%M:%S} -gmt 1] GMT, Winch \$w, \$t\lbs, \$wo\m."
+}
+EOF
