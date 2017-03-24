@@ -8,11 +8,15 @@ his is to comply with Appendix A, to show when our winches went over a certain t
 Very basic and was quickly written at the time for Matt Durham to comply with his
 requirements to parse specific winch data for a reports he works on.
 
+# Purpose: to print out max tension, and winch tension above a certain threshold
+#Usage: 
+* tension-report, to be used with winch-tension-threshold
+* sh tension-report SP 15 /mnt/nas2/SIO-Cruises/Sproul 2000' where SP is ship initial, 15 is year, followed by cruise directory, then the threshold."
+* sh tension-report SP 15 /mnt/nas2/SIO-Cruises/Sproul/SP1504 2000' You can also process a specific cruise directory
 
-Usage: tension-report, to be used with winch-tension-threshold
-Usage: 'sh tension-report SP 15 /mnt/nas2/SIO-Cruises/Sproul 2000' where SP is ship initial, 15 is year, followed by cruise directory, then the threshold."
-Usage: 'sh tension-report SP 15 /mnt/nas2/SIO-Cruises/Sproul/SP1504 2000' You can also process a specific cruise directory"
-Usage: Non-standard cruise directory names must be specified and processed individually '.../Sproul/CalFofi2000'"
-Usage: Notice how none of the examples have a trailing slash.  Do not end your directory path with a trailing slash!"
-Error: If you see this message with entered parameters, the target directory you've supplied does not exist, and/or you've entered insufficient paramters."
-Purpose: to print out max tension, and winch tension above a certain threshold"
+* Non-standard cruise directory names must be specified and processed individually '.../Sproul/CalFofi2000'
+* Notice how none of the examples have a trailing slash.  Do not end your directory path with a trailing slash!
+
+* Error: If you see this message with entered parameters, the target directory you've supplied does not exist, and/or you've entered insufficient paramters.
+
+
